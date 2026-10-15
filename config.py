@@ -10,6 +10,13 @@ REQUEST_DELAY = 2
 RESULTS_PER_SEARCH = 25
 HOURS_OLD = 168
 
+# HTTP retry პარამეტრები
+HTTP_RETRIES = 3
+HTTP_BACKOFF = 0.5
+
+# jobs.ss.ge დეტალების პარალელური ჩამოტვირთვა
+DETAIL_WORKERS = 4
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -158,3 +165,41 @@ CONTRACTOR_SIGNALS = [
     "employer of record", "independent contractor",
     "fixed price", "hourly rate", "monthly retainer",
 ]
+
+# ============================================================
+# ფილტრაციის დამხმარე სიტყვები (filters.py-დან გადმოტანილი)
+# ============================================================
+
+# remote-ის სიგნალები
+REMOTE_HINTS = (
+    "remote", "რემოუტ", "დისტანციურ",
+    "work from home", "wfh", "telecommute",
+)
+
+# ცარიელი / ზოგადი remote ლოკაციები
+# (worldwide / anywhere / global უკვე GLOBAL_KEYWORDS-შია)
+GENERIC_REMOTE = {
+    "", "remote", "fully remote", "remote job", "remote position",
+    "remote work", "100% remote", "remote - remote",
+}
+
+# რეგიონალური სიგნალები
+REGION_SIGNALS = (
+    "emea", "europe", "european", "caucasus",
+    "eastern europe", "central europe", "eurasia",
+)
+
+# US-only კომპანიების blacklist (defense, government, insurance)
+US_ONLY_COMPANIES = {
+    "lockheed martin", "caci", "caci international", "lmi",
+    "tista", "leidos", "booz allen", "saic",
+    "northrop grumman", "raytheon", "gdit", "mantech",
+    "voya financial", "farmers insurance", "amgen",
+    "associated bank", "general dynamics", "bae systems",
+    "mitre", "parsons", "peraton", "jacobs",
+}
+
+# მოკლე ჩანაწერები, რომლებსაც მკაცრი სიტყვის-საზღვრის შემოწმება სჭირდება
+US_ONLY_STRICT = {
+    "caci", "lmi", "tista", "saic", "gdit", "mitre",
+}

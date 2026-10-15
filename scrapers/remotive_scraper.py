@@ -2,20 +2,25 @@
 Remotive.com — უფასო public API, remote ვაკანსიები.
 https://remotive.com/api/remote-jobs
 """
-import requests
-from models import Job
-from config import USER_AGENT
+import re
+from typing import Optional
 
+from http_utils import build_session
+from logging_utils import get_logger
+from models import Job
+
+log = get_logger(__name__)
 
 API_URL = "https://remotive.com/api/remote-jobs"
+_TAG_RE = re.compile(r"<[^>]+>")
 
 
-def scrape(search_terms=None, progress_callback=None):
+def scrape(search_terms: Optional[list[str]] = None,
+           progress_callback=None) -> list[Job]:
     search_terms = search_terms or ["junior"]
-    all_jobs = []
-
-    headers = {"User-Agent": USER_AGENT}
-    seen_urls = set()
+    all_jobs: list[Job] = []
+    session = build_session()
+    seen_urls: set[str] = set()
 
     total = len(search_terms)
     for i, term in enumerate(search_terms):
@@ -23,14 +28,13 @@ def scrape(search_terms=None, progress_callback=None):
             progress_callback(i, total, f"remotive: '{term}'")
 
         try:
-            r = requests.get(
+            r = session.get(
                 API_URL,
                 params={"search": term, "limit": 100},
-                headers=headers,
                 timeout=20,
             )
             if r.status_code != 200:
-                print(f"     ⚠ remotive '{term}': HTTP {r.status_code}")
+                log.warning("remotive '%s': HTTP %s", term, r.status_code)
                 continue
 
             data = r.json()
@@ -49,9 +53,7 @@ def scrape(search_terms=None, progress_callback=None):
                     loc = (item.get("candidate_required_location") or "").strip()
 
                     # description არის HTML — ჩამოვაშოროთ tag-ები
-                    import re
-                    desc = item.get("description") or ""
-                    desc = re.sub(r"<[^>]+>", " ", desc)[:2000]
+                    desc = _TAG_RE.sub(" ", item.get("description") or "")[:2000]
 
                     all_jobs.append(Job(
                         source="remotive",
@@ -66,10 +68,10 @@ def scrape(search_terms=None, progress_callback=None):
                     ))
                     count += 1
                 except Exception as e:
-                    print(f"     ⚠ remotive parse: {e}")
+                    log.warning("remotive parse: %s", e)
 
-            print(f"     ✓ remotive '{term}': {count}")
+            log.info("remotive '%s': %s", term, count)
         except Exception as e:
-            print(f"     ✗ remotive '{term}': {e}")
+            log.exception("remotive '%s': %s", term, e)
 
     return all_jobs

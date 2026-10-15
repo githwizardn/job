@@ -12,14 +12,18 @@ jobs.ss.ge — Next.js data endpoint + job detail fetch.
 import re
 import time
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
+from http_utils import build_session
+from logging_utils import get_logger
 from models import Job
-from config import USER_AGENT, REQUEST_DELAY
+from config import REQUEST_DELAY, DETAIL_WORKERS
 
+log = get_logger(__name__)
 
 BASE_URL = "https://jobs.ss.ge"
 LIST_PATH = "/ka/l/vacancies"
@@ -50,7 +54,7 @@ def _get_build_id(session: requests.Session, force: bool = False) -> Optional[st
                 _BUILD_ID_CACHE["expires"] = now + _BUILD_ID_TTL
                 return m.group(1)
         except Exception as e:
-            print(f"     ✗ buildId ({path}): {e}")
+            log.warning("buildId (%s): %s", path, e)
     return None
 
 
@@ -65,7 +69,6 @@ def _fetch_page(session: requests.Session, build_id: str,
         params["page"] = page
 
     headers = {
-        "User-Agent": USER_AGENT,
         "Accept": "*/*",
         "Referer": f"{BASE_URL}{LIST_PATH}?searchString={term}",
         "x-nextjs-data": "1",
@@ -78,7 +81,7 @@ def _fetch_page(session: requests.Session, build_id: str,
         if r.status_code in (404, 410):
             _BUILD_ID_CACHE["value"] = None
     except Exception as e:
-        print(f"     ✗ fetch p{page} '{term}': {e}")
+        log.warning("fetch p%s '%s': %s", page, term, e)
     return None
 
 
@@ -185,7 +188,7 @@ def _parse_item(item: dict) -> Optional[Job]:
             description="",
         )
     except Exception as e:
-        print(f"     ⚠ parse: {e}")
+        log.warning("parse: %s", e)
         return None
 
 
@@ -229,19 +232,33 @@ def _fetch_description(session: requests.Session, job: Job) -> str:
                 if len(text) > 80:
                     return text[:DESC_LIMIT]
     except Exception as e:
-        print(f"     ⚠ desc {job.url}: {e}")
+        log.warning("desc %s: %s", job.url, e)
     return ""
 
 
 # ─────────────────────────────────────────────────────────────
 # მთავარი scrape
 # ─────────────────────────────────────────────────────────────
-def scrape(search_terms=None, progress_callback=None) -> list:
-    search_terms = search_terms or ["junior"]
-    all_jobs: list = []
+def _fetch_descriptions(session: requests.Session, jobs: list[Job]) -> None:
+    """პარალელურად ჩამოტვირთავს აღწერებს (bounded pool)."""
+    if not jobs:
+        return
+    with ThreadPoolExecutor(max_workers=DETAIL_WORKERS) as pool:
+        futures = {pool.submit(_fetch_description, session, job): job
+                   for job in jobs}
+        for future in as_completed(futures):
+            job = futures[future]
+            desc = future.result()
+            if desc:
+                job.description = desc
 
-    session = requests.Session()
-    session.headers.update({"User-Agent": USER_AGENT})
+
+def scrape(search_terms: Optional[list[str]] = None,
+           progress_callback=None) -> list[Job]:
+    search_terms = search_terms or ["junior"]
+    all_jobs: list[Job] = []
+
+    session = build_session()
     try:
         session.get(f"{BASE_URL}{LIST_PATH}", timeout=15)
     except Exception:
@@ -249,17 +266,17 @@ def scrape(search_terms=None, progress_callback=None) -> list:
 
     build_id = _get_build_id(session)
     if not build_id:
-        print("     ✗ buildId ვერ მოიძებნა")
+        log.warning("jobs.ss.ge: buildId ვერ მოიძებნა")
         return all_jobs
-    print(f"     ✓ buildId: {build_id}")
+    log.info("jobs.ss.ge buildId: %s", build_id)
 
-    seen_urls: set = set()
+    seen_urls: set[str] = set()
 
     for i, term in enumerate(search_terms):
         if progress_callback:
             progress_callback(i, len(search_terms), f"jobs.ss.ge: '{term}'")
 
-        term_jobs: list = []
+        term_jobs: list[Job] = []
 
         # ── პაგინაცია ──
         for page in (1, 2):
@@ -287,15 +304,12 @@ def scrape(search_terms=None, progress_callback=None) -> list:
                 break
             time.sleep(REQUEST_DELAY)
 
-        # ── description-ის ჩამოტვირთვა ──
-        for job in term_jobs[:DETAIL_MAX]:
-            desc = _fetch_description(session, job)
-            if desc:
-                job.description = desc
-            time.sleep(REQUEST_DELAY)
+        # ── description-ის ჩამოტვირთვა (პარალელურად) ──
+        _fetch_descriptions(session, term_jobs[:DETAIL_MAX])
 
-        print(f"     ✓ '{term}': {len(term_jobs)} ვაკანსია "
-              f"({sum(1 for j in term_jobs if j.description)} აღწერით)")
+        log.info("jobs.ss.ge '%s': %s ვაკანსია (%s აღწერით)",
+                 term, len(term_jobs),
+                 sum(1 for j in term_jobs if j.description))
         all_jobs.extend(term_jobs)
 
     return all_jobs

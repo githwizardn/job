@@ -4,10 +4,19 @@ JobSpy scraper — მრავალ-რეგიონიანი ძებ�
 "Worldwide" არ მუშაობს jobspy-ში → ვძებნით რამდენიმე ქვეყანაში ცალ-ცალკე
 და შედეგებს ვაერთიანებთ.
 """
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional
+
 from jobspy import scrape_jobs as jobspy_scrape
+
+from logging_utils import get_logger
 from models import Job
 from config import JOBSPY_SITES, JOBSPY_REGIONS
 
+log = get_logger(__name__)
+
+# პარალელური რეგიონების რაოდენობა (rate-limit-ის თავიდან ასაცილებლად ზომიერი)
+MAX_WORKERS = 3
 
 # remote-ის სიგნალები ლოკაციაში
 _REMOTE_HINTS = ("remote", "anywhere", "worldwide", "distributed", "home")
@@ -35,52 +44,66 @@ def _row_to_job(row, site_name: str) -> Job:
     )
 
 
-def scrape(search_terms=None, results_wanted=25, hours_old=168,
-           progress_callback=None, sites=None, regions=None):
+def _scrape_one(term: str, region: str, sites: list[str],
+                results_wanted: int, hours_old: int) -> list[Job]:
+    """ერთი (ტერმინი, რეგიონი) წყვილის ძებნა."""
+    try:
+        df = jobspy_scrape(
+            site_name=sites,
+            search_term=term,
+            location=region,
+            results_wanted=results_wanted,
+            hours_old=hours_old,
+            is_remote=True,
+            verbose=0,
+        )
+    except Exception as e:
+        log.warning("jobspy '%s' @ %s: %s", term, region, e)
+        return []
+
+    if df is None or df.empty:
+        return []
+
+    jobs: list[Job] = []
+    for _, row in df.iterrows():
+        job = _row_to_job(row, str(row.get("site", "?") or "?"))
+        if job.url and job.title:
+            jobs.append(job)
+    if jobs:
+        log.info("jobspy '%s' @ %s: %s", term, region, len(jobs))
+    return jobs
+
+
+def scrape(search_terms: Optional[list[str]] = None, results_wanted: int = 25,
+           hours_old: int = 168, progress_callback=None,
+           sites: Optional[list[str]] = None,
+           regions: Optional[list[str]] = None) -> list[Job]:
     search_terms = search_terms or ["junior"]
     sites = sites or JOBSPY_SITES
     regions = regions or JOBSPY_REGIONS
 
-    all_jobs = []
-    seen_urls = set()
+    pairs = [(term, region) for term in search_terms for region in regions]
+    total_steps = len(pairs)
+    all_jobs: list[Job] = []
+    seen_urls: set[str] = set()
+    done = 0
 
-    total_steps = len(search_terms) * len(regions)
-    step = 0
-
-    for term in search_terms:
-        for region in regions:
-            step += 1
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(_scrape_one, term, region, sites,
+                        results_wanted, hours_old): (term, region)
+            for term, region in pairs
+        }
+        for future in as_completed(futures):
+            term, region = futures[future]
+            done += 1
             if progress_callback:
-                progress_callback(step, total_steps,
+                progress_callback(done, total_steps,
                                   f"jobspy: '{term}' @ {region}")
-
-            try:
-                df = jobspy_scrape(
-                    site_name=sites,
-                    search_term=term,
-                    location=region,
-                    results_wanted=results_wanted,
-                    hours_old=hours_old,
-                    is_remote=True,
-                    verbose=0,
-                )
-            except Exception as e:
-                print(f"     ✗ jobspy '{term}' @ {region}: {e}")
-                continue
-
-            if df is None or df.empty:
-                continue
-
-            added = 0
-            for _, row in df.iterrows():
-                job = _row_to_job(row, str(row.get("site", "?") or "?"))
-                if not job.url or job.url in seen_urls or not job.title:
+            for job in future.result():
+                if job.url in seen_urls:
                     continue
                 seen_urls.add(job.url)
                 all_jobs.append(job)
-                added += 1
-
-            if added:
-                print(f"     ✓ '{term}' @ {region}: {added}")
 
     return all_jobs

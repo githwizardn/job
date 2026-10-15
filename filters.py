@@ -12,6 +12,8 @@ KEEP სიგნალები (უცხო remote-ისთვის):
   - contractor / B2B / EOR
 """
 import re
+from typing import Optional
+
 from models import Job
 from config import (
     GEORGIAN_LOCATIONS,
@@ -19,80 +21,64 @@ from config import (
     RESTRICTED_KEYWORDS,
     GLOBAL_KEYWORDS,
     CONTRACTOR_SIGNALS,
+    REMOTE_HINTS,
+    GENERIC_REMOTE,
+    REGION_SIGNALS,
+    US_ONLY_COMPANIES,
+    US_ONLY_STRICT,
 )
-
-
-# ─────────────────────────────────────────────────────────────
-# US-only კომპანიების blacklist (defense, government, insurance)
-# ─────────────────────────────────────────────────────────────
-_US_ONLY_COMPANIES = {
-    "lockheed martin", "caci", "caci international", "lmi",
-    "tista", "leidos", "booz allen", "saic",
-    "northrop grumman", "raytheon", "gdit", "mantech",
-    "voya financial", "farmers insurance", "amgen",
-    "associated bank", "general dynamics", "bae systems",
-    "mitre", "parsons", "peraton", "jacobs",
-}
 
 
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
-_REMOTE_HINTS = (
-    "remote", "რემოუტ", "დისტანციურ",
-    "work from home", "wfh", "telecommute",
-)
-
-_GENERIC_REMOTE = {
-    "", "remote", "worldwide", "world-wide", "anywhere", "global",
-    "remote worldwide", "anywhere in the world", "fully remote",
-    "remote - worldwide", "remote, worldwide",
-    "remote / worldwide", "remote (worldwide)", "global remote",
-    "work from anywhere",
-}
-
-_REGION_SIGNALS = (
-    "emea", "europe", "european", "caucasus",
-    "eastern europe", "central europe", "eurasia",
-)
+_REMOTE_HINTS = REMOTE_HINTS
+_GENERIC_REMOTE = GENERIC_REMOTE
+_REGION_SIGNALS = REGION_SIGNALS
+_US_ONLY_COMPANIES = US_ONLY_COMPANIES
 
 
-def _extract_words(term: str) -> list:
+def _extract_words(term: str) -> list[str]:
     words = re.findall(r"[a-zA-Zა-ჰ0-9]+", term.lower())
     long_words = [w for w in words if len(w) >= 3]
     return long_words if long_words else [term.lower()]
 
 
-def matches_search(job: Job, search_terms: list) -> bool:
+def matches_search(job: Job, search_terms: list[str]) -> bool:
+    """სათაურსა და კომპანიაში ტერმინების სიტყვიერი დამთხვევა."""
     if not search_terms:
         return True
     haystack = f"{job.title} {job.company}".lower()
     for term in search_terms:
         for w in _extract_words(term):
-            if w in haystack:
+            if _has_word(haystack, w):
                 return True
     return False
 
 
 def _has_word(text: str, word: str) -> bool:
-    return bool(re.search(rf"\b{re.escape(word)}\b", text))
+    """სიტყვის საზღვრებით დამთხვევა (unicode-safe ქართულისთვის)."""
+    if not word:
+        return False
+    pattern = rf"(?<![\w]){re.escape(word)}(?![\w])"
+    return bool(re.search(pattern, text, re.UNICODE))
 
 
-def _find_foreign(loc: str):
+def _find_foreign(loc: str) -> Optional[str]:
     for place in FOREIGN_PLACES:
         if _has_word(loc, place):
             return place
     return None
 
 
-def _find_georgian(loc: str):
+def _find_georgian(loc: str) -> Optional[str]:
     for geo in GEORGIAN_LOCATIONS:
         if geo in loc:
             return geo
     return None
 
 
-def _find_global_signal(loc: str, desc: str):
+def _find_global_signal(loc: str, desc: str) -> Optional[str]:
     for kw in GLOBAL_KEYWORDS:
         if kw in loc or kw in desc:
             return kw
@@ -126,8 +112,13 @@ def _is_remote(job: Job, loc: str, desc: str) -> bool:
 def _is_us_only_company(job: Job) -> str:
     """აბრუნებს კომპანიის სახელს თუ US-only blacklist-შია."""
     company_lower = (job.company or "").lower()
+    if not company_lower:
+        return ""
     for us_co in _US_ONLY_COMPANIES:
-        if us_co in company_lower:
+        if us_co in US_ONLY_STRICT:
+            if _has_word(company_lower, us_co):
+                return us_co
+        elif us_co in company_lower:
             return us_co
     return ""
 
@@ -135,7 +126,7 @@ def _is_us_only_company(job: Job) -> str:
 # ─────────────────────────────────────────────────────────────
 # მთავარი შემოწმება
 # ─────────────────────────────────────────────────────────────
-def is_available_from_georgia(job: Job) -> tuple:
+def is_available_from_georgia(job: Job) -> tuple[bool, str]:
     """
     Returns: (available: bool, reason: str)
     """
@@ -203,7 +194,7 @@ def is_available_from_georgia(job: Job) -> tuple:
 # ─────────────────────────────────────────────────────────────
 # Batch ფილტრი
 # ─────────────────────────────────────────────────────────────
-def filter_jobs(jobs: list, search_terms: list) -> tuple:
+def filter_jobs(jobs: list[Job], search_terms: list[str]) -> tuple[list[Job], dict]:
     kept = []
     stats = {
         "total": len(jobs),

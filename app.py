@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import importlib
 import json
 import os
-import re
 
-from config import MY_TERMS_FILE
+from config import MY_TERMS_FILE, RESULTS_PER_SEARCH, HOURS_OLD
+from dedupe import dedupe
+from logging_utils import get_logger
+
+log = get_logger("app")
 
 # ============================================================
 # გვერდის კონფიგურაცია
@@ -127,8 +131,8 @@ with st.sidebar:
 
     # --- პარამეტრები ---
     st.subheader("🎛️ დამატებითი")
-    results_per = st.slider("შედეგები ტერმინზე", 5, 100, 25, 5)
-    hours_old = st.slider("ბოლო რამდენი საათი", 24, 720, 168, 24)
+    results_per = st.slider("შედეგები ტერმინზე", 5, 100, RESULTS_PER_SEARCH, 5)
+    hours_old = st.slider("ბოლო რამდენი საათი", 24, 720, HOURS_OLD, 24)
 
     st.divider()
     run_button = st.button("🚀 ძებნა", type="primary", use_container_width=True)
@@ -144,7 +148,17 @@ if run_button:
         st.error("⚠️ ჯერ არაფერი დაგიმატებია! ჩაწერე ტერმინი და დააჭირე ➕")
         st.stop()
 
-    enabled = []
+    # ── სქრაპერების რეგისტრი: სახელი → (მოდული, დამატებითი kwargs) ──
+    SCRAPER_REGISTRY = {
+        "jobspy": ("jobspy_scraper", {"results_wanted": results_per,
+                                      "hours_old": hours_old}),
+        "jobs_ge": ("jobs_ge", {}),
+        "hr_ge": ("hr_ge", {}),
+        "jobs_ss_ge": ("jobs_ss_ge", {}),
+        "remotive": ("remotive_scraper", {}),
+    }
+
+    enabled: list[str] = []
     if use_jobspy: enabled.append("jobspy")
     if use_jobs_ge: enabled.append("jobs_ge")
     if use_hr_ge: enabled.append("hr_ge")
@@ -168,119 +182,43 @@ if run_button:
         progress_bar.progress(min(pct, 1.0))
         status_text.text(message)
 
-    all_jobs = []
+    all_jobs: list = []
+    errors: list[str] = []
 
-    # --- JobSpy ---
-    if use_jobspy:
-        with st.spinner("JobSpy — მიმდინარეობს..."):
+    for name in enabled:
+        module_name, extra = SCRAPER_REGISTRY[name]
+        with st.spinner(f"{name} — მიმდინარეობს..."):
             try:
-                from scrapers import jobspy_scraper
-                jobs = jobspy_scraper.scrape(
+                module = importlib.import_module(f"scrapers.{module_name}")
+                jobs = module.scrape(
                     search_terms=selected_terms,
-                    results_wanted=results_per,
-                    hours_old=hours_old,
                     progress_callback=update_progress,
+                    **extra,
                 )
                 all_jobs.extend(jobs)
             except Exception as e:
-                st.warning(f"JobSpy: {e}")
-
-    # --- jobs.ge ---
-    if use_jobs_ge:
-        with st.spinner("jobs.ge — მიმდინარეობს..."):
-            try:
-                from scrapers import jobs_ge
-                jobs = jobs_ge.scrape(
-                    search_terms=selected_terms,
-                    progress_callback=update_progress,
-                )
-                all_jobs.extend(jobs)
-            except Exception as e:
-                st.warning(f"jobs.ge: {e}")
-
-    # --- hr.ge ecosystem ---
-    if use_hr_ge:
-        with st.spinner("hr.ge — მიმდინარეობს..."):
-            try:
-                from scrapers import hr_ge
-                jobs = hr_ge.scrape(
-                    search_terms=selected_terms,
-                    progress_callback=update_progress,
-                )
-                all_jobs.extend(jobs)
-            except Exception as e:
-                st.warning(f"hr.ge: {e}")
-
-    # --- jobs.ss.ge ---
-    if use_jobs_ss:
-        with st.spinner("jobs.ss.ge — მიმდინარეობს..."):
-            try:
-                from scrapers import jobs_ss_ge
-                jobs = jobs_ss_ge.scrape(
-                    search_terms=selected_terms,
-                    progress_callback=update_progress,
-                )
-                all_jobs.extend(jobs)
-            except Exception as e:
-                st.warning(f"jobs.ss.ge: {e}")
+                log.exception("scraper %s failed", name)
+                errors.append(f"{name}: {e}")
+                with st.expander(f"⚠️ {name} — შეცდომა", expanded=False):
+                    st.exception(e)
 
     progress_bar.progress(1.0)
     status_text.text("✅ ჩამოტვირთვა დასრულდა")
 
-        # --- Remotive ---
-    if use_remotive:
-        with st.spinner("Remotive — მიმდინარეობს..."):
-            try:
-                from scrapers import remotive_scraper
-                jobs = remotive_scraper.scrape(
-                    search_terms=selected_terms,
-                    progress_callback=update_progress,
-                )
-                all_jobs.extend(jobs)
-            except Exception as e:
-                st.warning(f"Remotive: {e}")
+    if errors:
+        st.warning("ზოგიერთი სქრაპერი ვერ დასრულდა: " + "; ".join(errors))
 
-    
-    
     # ─────────────────────────────────────────────────────
     # დედუპლიკაცია: URL + cross-site (title + company)
     # ─────────────────────────────────────────────────────
     if all_jobs:
-        def _norm(s):
-            return re.sub(r"\s+", " ", (s or "").lower().strip())
-
-        # პრიორიტეტი: hr.ge < jobs.ge < jobs.ss.ge < jobspy
-        _PRIORITY = {"hr.ge": 0, "jobs.ge": 1, "jobs.ss.ge": 2}
-
-        # ჯერ ვასორტირებთ პრიორიტეტის მიხედვით
-        all_jobs.sort(key=lambda j: _PRIORITY.get(j.source, 99))
-
-        seen_urls = set()
-        seen_pairs = set()
-        unique_jobs = []
-
-        for j in all_jobs:
-            # 1. URL დედუპი
-            if not j.url or j.url in seen_urls or len(j.url) <= 5:
-                continue
-            seen_urls.add(j.url)
-
-            # 2. cross-site დედუპი (title + company)
-            key = (_norm(j.title), _norm(j.company))
-            if key[0] and key[1] and key in seen_pairs:
-                continue
-            if key[0] and key[1]:
-                seen_pairs.add(key)
-
-            unique_jobs.append(j)
-
-        all_jobs = unique_jobs
+        all_jobs = dedupe(all_jobs, cross_site=True)
 
     st.caption(f"📦 უნიკალური ვაკანსიები: **{len(all_jobs)}**")
 
     # --- ფილტრაცია ---
     filter_stats = None
-    if all_jobs:
+    if all_jobs and geo_filter:
         with st.spinner("ფილტრაცია..."):
             try:
                 from filters import filter_jobs
@@ -310,7 +248,14 @@ if run_button:
                         ):
                             st.write(f"  **{count}×** {reason}")
             except Exception as e:
-                st.warning(f"ფილტრაციის შეცდომა: {e}")
+                log.exception("filter failed")
+                with st.expander("⚠️ ფილტრაციის შეცდომა", expanded=False):
+                    st.exception(e)
+    elif all_jobs and not geo_filter:
+        from filters import matches_search
+        before = len(all_jobs)
+        all_jobs = [j for j in all_jobs if matches_search(j, selected_terms)]
+        st.caption(f"🔎 გეო-ფილტრი გამორთულია — სათაურით გაფილტრვა: {before} → {len(all_jobs)}")
 
     # --- შენახვა ---
     if all_jobs:
@@ -319,13 +264,15 @@ if run_button:
         st.session_state["results"] = df
         st.session_state["search_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     else:
+        st.session_state["results"] = None
+        st.session_state["search_time"] = ""
         st.warning("❌ ვერაფერი მოიძებნა. სცადე სხვა ტერმინები ან გამორთე გეო-ფილტრი.")
 
 
 # ============================================================
 # შედეგები
 # ============================================================
-if "results" in st.session_state:
+if st.session_state.get("results") is not None:
     df = st.session_state["results"]
 
     st.success(f"✅ ნაპოვნია **{len(df)}** უნიკალური ვაკანსია")
@@ -373,29 +320,23 @@ if "results" in st.session_state:
     # --- ცხრილი ---
     st.subheader("📋 შედეგები")
 
-    if "geo_status" in filtered.columns:
-        cols = ["source", "title", "company", "location", "posted", "geo_status", "url"]
-        cols = [c for c in cols if c in filtered.columns]
-        display_df = filtered[cols].copy()
-        display_df.columns = ["წყარო", "სათაური", "კომპანია", "ლოკაცია", "გამოქვეყნდა", "🌍 სტატუსი", "ლინკი"][:len(cols)]
-
-        col_config = {
-            "ლინკი": st.column_config.LinkColumn("გახსნა", display_text="🔗"),
-            "სათაური": st.column_config.TextColumn("სათაური", width="large"),
-            "კომპანია": st.column_config.TextColumn("კომპანია", width="medium"),
-            "წყარო": st.column_config.TextColumn("წყარო", width="small"),
-            "🌍 სტატუსი": st.column_config.TextColumn("🌍 სტატუსი", width="medium"),
-        }
-    else:
-        cols = ["source", "title", "company", "location", "posted", "url"]
-        display_df = filtered[cols].copy()
-        display_df.columns = ["წყარო", "სათაური", "კომპანია", "ლოკაცია", "გამოქვეყნდა", "ლინკი"]
-        col_config = {
-            "ლინკი": st.column_config.LinkColumn("გახსნა", display_text="🔗"),
-            "სათაური": st.column_config.TextColumn("სათაური", width="large"),
-            "კომპანია": st.column_config.TextColumn("კომპანია", width="medium"),
-            "წყარო": st.column_config.TextColumn("წყარო", width="small"),
-        }
+    _EN_TO_KA = {
+        "source": "წყარო", "title": "სათაური", "company": "კომპანია",
+        "location": "ლოკაცია", "posted": "გამოქვეყნდა", "geo_status": "🌍 სტატუსი",
+        "salary": "💰 ხელფასი", "url": "ლინკი",
+    }
+    cols = [c for c in ("source", "title", "company", "location", "posted",
+                        "salary", "geo_status", "url")
+            if c in filtered.columns]
+    display_df = filtered[cols].copy()
+    display_df.columns = [_EN_TO_KA[c] for c in cols]
+    col_config = {
+        "ლინკი": st.column_config.LinkColumn("გახსნა", display_text="🔗"),
+        "სათაური": st.column_config.TextColumn("სათაური", width="large"),
+        "კომპანია": st.column_config.TextColumn("კომპანია", width="medium"),
+        "წყარო": st.column_config.TextColumn("წყარო", width="small"),
+        "🌍 სტატუსი": st.column_config.TextColumn("🌍 სტატუსი", width="medium"),
+    }
 
     st.dataframe(
         display_df,
@@ -407,7 +348,7 @@ if "results" in st.session_state:
     # --- ჩამოტვირთვა ---
     st.divider()
     st.subheader("💾 ჩამოტვირთვა")
-    csv = filtered.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    csv = filtered.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         label="📥 CSV ჩამოტვირთვა",
         data=csv,

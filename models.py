@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from typing import Any
 
 
 @dataclass
@@ -17,5 +18,5 @@ class Job:
     geo_status: str = ""  # ფილტრის შედეგი — რატომ დარჩა
     scraped_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
