@@ -14,9 +14,9 @@ from logging_utils import get_logger
 
 log = get_logger("history")
 
-st.set_page_config(page_title="ისტორია — JobRadar", page_icon="📚", layout="wide")
+st.set_page_config(page_title="History — JobRadar", page_icon="📚", layout="wide")
 
-st.title("📚 ვაკანსიების ისტორია")
+st.title("📚 Vacancy History")
 st.caption("ბაზაში შენახული ყველა ვაკანსია — გაფილტრე, მონიშნე, გადმოწერე")
 
 
