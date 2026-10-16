@@ -26,6 +26,7 @@ from config import (
     REGION_SIGNALS,
     US_ONLY_COMPANIES,
     US_ONLY_STRICT,
+    TERM_SYNONYMS,
 )
 
 
@@ -44,15 +45,36 @@ def _extract_words(term: str) -> list[str]:
     return long_words if long_words else [term.lower()]
 
 
+def _expand_term(term: str) -> list[str]:
+    """აბრუნებს [სინონიმები...] ან [ორიგინალი] თუ სინონიმი არ აქვს."""
+    key = term.lower().strip()
+    syns = TERM_SYNONYMS.get(key)
+    if syns:
+        return syns
+    return [term]
+
+
 def matches_search(job: Job, search_terms: list[str]) -> bool:
-    """სათაურსა და კომპანიაში ტერმინების სიტყვიერი დამთხვევა."""
+    """სათაურსა და კომპანიაში ტერმინების/სინონიმების დამთხვევა."""
     if not search_terms:
         return True
+
     haystack = f"{job.title} {job.company}".lower()
+
     for term in search_terms:
-        for w in _extract_words(term):
-            if _has_word(haystack, w):
+        variants = _expand_term(term)
+        for variant in variants:
+            v = variant.lower().strip()
+
+            # მრავალსიტყვიანი ფრაზა — substring
+            if " " in v and len(v) >= 5 and v in haystack:
                 return True
+
+            # ერთი სიტყვა — მხოლოდ სიტყვის საზღვრებით (word boundary)
+            for w in _extract_words(v):
+                if _has_word(haystack, w):
+                    return True
+
     return False
 
 

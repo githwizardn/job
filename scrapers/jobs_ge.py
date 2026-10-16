@@ -9,7 +9,7 @@ from models import Job
 
 log = get_logger(__name__)
 
-CATEGORY = 6  # IT / პროგრამირება
+CATEGORY = CATEGORY = ""  # ყველა კატეგორია
 BASE_URL = "https://jobs.ge"
 
 # Session მოდულის დონეზე — ერთხელ იქმნება, connection pooling მუშაობს
@@ -54,7 +54,11 @@ def scrape(search_terms=None, progress_callback=None):
         if progress_callback:
             progress_callback(i, total, f"jobs.ge: '{term}'")
 
-        url = f"{BASE_URL}/en/?page=1&q={term.upper()}&cid={CATEGORY}&lid="
+                # URL-ის აწყობა — თუ CATEGORY ცარიელია, cid= არ დავამატოთ
+        if CATEGORY:
+            url = f"{BASE_URL}/en/?page=1&q={term.upper()}&cid={CATEGORY}&lid="
+        else:
+            url = f"{BASE_URL}/en/?page=1&q={term.upper()}&lid="
 
         try:
             r = _session.get(url, timeout=15)

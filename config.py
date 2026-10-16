@@ -223,3 +223,57 @@ US_ONLY_STRICT = {
 # GitHub Actions: Repository Secrets (მოგვიანებით)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+
+
+
+
+# ============================================================
+# ტერმინების სინონიმები — ძებნა ჭკვიანური რომ იყოს
+# ============================================================
+# "frontend" რომ ეძებო, "React Developer"-იც მოიძებნოს
+TERM_SYNONYMS = {
+    "frontend": [
+        "frontend", "front-end", "front end",
+        "react", "vue", "angular", "next.js", "svelte",
+    ],
+    "react": [
+        "react", "react.js", "reactjs",
+    ],
+    "react native": [
+        "react native", "react-native", "reactnative",
+    ],
+    "javascript": [
+        "javascript", "ecmascript", "es6", "typescript",
+    ],
+    "web developer": [
+        "web developer", "web dev", "fullstack", "full-stack",
+        "full stack", "web development",
+    ],
+    "junior developer": [
+        "junior", "jr ", "jr.", "entry level", "entry-level",
+        "junior developer", "junior frontend",
+    ],
+    "it support": [
+        "it support", "helpdesk", "help desk", "service desk",
+        "technical support", "tech support", "it specialist",
+        "sysadmin", "system administrator", "it technician",
+    ],
+    "customer support": [
+        "customer support", "customer service", "client service",
+        "client support", "customer success", "call center",
+    ],
+    "network": [
+        "network", "networking", "network engineer", "network admin",
+        "network administrator", "ccna", "cisco", "noc",
+    ],
+    "cybersecurity": [
+        "cybersecurity", "cyber security", "information security",
+        "infosec", "security analyst", "soc analyst", "security engineer",
+    ],
+    "intern": [
+        "intern", "internship", "trainee", "სტაჟიორი",
+    ],
+    "სტაჟიორი": [
+        "intern", "internship", "trainee", "junior", "სტაჟიორი",
+    ],
+}
