@@ -88,6 +88,7 @@ def get_jobs(
     conn,
     only_new_hours: Optional[int] = None,
     only_applied: Optional[int] = None,
+    only_favorite: Optional[int] = None,
     source: Optional[str] = None,
     limit: int = 500,
 ) -> list[dict]:
@@ -105,6 +106,10 @@ def get_jobs(
         q += " AND applied = ?"
         args.append(only_applied)
 
+    if only_favorite is not None:
+        q += " AND favorite = ?"
+        args.append(only_favorite)
+
     if source:
         q += " AND source = ?"
         args.append(source)
@@ -113,7 +118,6 @@ def get_jobs(
     args.append(limit)
 
     return [dict(r) for r in conn.execute(q, args).fetchall()]
-
 
 def mark_applied(conn, fp: str, applied: bool = True) -> None:
     conn.execute("UPDATE jobs SET applied = ? WHERE fp = ?", (int(applied), fp))
@@ -131,6 +135,17 @@ def set_note(conn, fp: str, note: str) -> None:
 
 
 def stats(conn) -> dict:
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN applied = 1 THEN 1 ELSE 0 END) as applied,
+            SUM(CASE WHEN favorite = 1 THEN 1 ELSE 0 END) as favorite,
+            SUM(CASE WHEN first_seen >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) as last_24h
+        FROM jobs
+        """
+    ).fetchone()
+    return dict(row) if row else {"total": 0, "applied": 0, "favorite": 0, "last_24h": 0}
     row = conn.execute(
         """
         SELECT
