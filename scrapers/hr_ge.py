@@ -2,16 +2,21 @@
 hr.ge + doctor.ge — POST API.
 """
 import time
-import requests
+
+from http_utils import build_session          # ← ახალი
+from logging_utils import get_logger          # ← ახალი
 from models import Job
 from config import USER_AGENT, REQUEST_DELAY
 
+log = get_logger(__name__)                    # ← ახალი
 
 TENANTS = {
     "hr.ge":     "https://api.p.hr.ge/public-portal/tenant/1/api/v3",
-    "doctor.ge": "https://api.p.hr.ge/public-portal/tenant/4/api/v3",
 }
 ENDPOINT = "/announcement-search"
+
+# Session ერთხელ იქმნება და მთელი მოდულის სიცოცხლის განმავლობაში გამოიყენება
+_session = build_session()                    # ← ახალი
 
 
 def _headers(domain: str) -> dict:
@@ -35,11 +40,12 @@ def _fetch(domain: str, base: str, term: str):
         "Limit": 100,
     }
     try:
-        r = requests.post(url, json=payload, headers=_headers(domain), timeout=20)
+        r = _session.post(url, json=payload, headers=_headers(domain), timeout=20)  # ← session
         if r.status_code == 200:
             return r.json()
+        log.warning("%s '%s': HTTP %s", domain, term, r.status_code)                # ← log
     except Exception as e:
-        print(f"     ✗ {domain} '{term}': {e}")
+        log.warning("%s '%s': %s", domain, term, e)                                 # ← log
     return None
 
 
@@ -47,7 +53,7 @@ def _parse(data, domain: str) -> list:
     jobs = []
     if not isinstance(data, dict) or not data.get("success"):
         return jobs
-    
+
     items = data.get("data", {}).get("announcements", {}).get("items", [])
     for item in items:
         try:
@@ -55,11 +61,11 @@ def _parse(data, domain: str) -> list:
             title = (item.get("title") or "").strip()
             if not ann_id or not title:
                 continue
-            
+
             url = f"https://www.{domain}/announcement/{ann_id}"
             locations = item.get("locations") or []
             loc_str = ", ".join(locations) if isinstance(locations, list) else str(locations)
-            
+
             jobs.append(Job(
                 source=domain,
                 title=title,
@@ -72,7 +78,7 @@ def _parse(data, domain: str) -> list:
                 remote=bool(item.get("isWorkFromHome", False)),
             ))
         except Exception as e:
-            print(f"     ⚠ parse: {e}")
+            log.warning("parse: %s", e)                                              # ← log
     return jobs
 
 
@@ -81,16 +87,18 @@ def scrape(search_terms=None, progress_callback=None):
     all_jobs = []
     total = len(search_terms) * len(TENANTS)
     counter = 0
-    
+
     for domain, base in TENANTS.items():
         for term in search_terms:
             counter += 1
             if progress_callback:
                 progress_callback(counter, total, f"{domain}: '{term}'")
-            
+
             data = _fetch(domain, base, term)
             if data:
-                all_jobs.extend(_parse(data, domain))
+                parsed = _parse(data, domain)
+                log.info("%s '%s': %s ვაკანსია", domain, term, len(parsed))          # ← log
+                all_jobs.extend(parsed)
             time.sleep(REQUEST_DELAY)
-    
+
     return all_jobs

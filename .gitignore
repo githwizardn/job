@@ -20,8 +20,9 @@ pyvenv.cfg
 
 # Secrets / local data
 .env
+.env.local
+.env.*.local
 .streamlit/secrets.toml
-my_terms.json
 output/
 *.csv
 

@@ -1,21 +1,28 @@
 import time
-import requests
-from bs4 import BeautifulSoup
-from models import Job
-from config import USER_AGENT, REQUEST_DELAY
 
+from bs4 import BeautifulSoup
+
+from config import REQUEST_DELAY
+from http_utils import build_session
+from logging_utils import get_logger
+from models import Job
+
+log = get_logger(__name__)
 
 CATEGORY = 6  # IT / პროგრამირება
 BASE_URL = "https://jobs.ge"
 
+# Session მოდულის დონეზე — ერთხელ იქმნება, connection pooling მუშაობს
+_session = build_session()
 
-# ცნობილი ლოკაციის სიტყვები — თუ " - " შემდეგ ეს არ არის, "საქართველო"-თი ჩანაცვლდება
+
+# ცნობილი ლოკაციის სიტყვები
 _LOCATION_HINTS = (
     "tbilisi", "batumi", "kutaisi", "rustavi", "gori", "zugdidi",
     "telavi", "poti", "ozurgeti", "kvemo kartli", "shida kartli",
     "თბილისი", "ბათუმი", "ქუთაისი", "რუსთავი", "გორი", "ზუგდიდი",
     "თელავი", "ფოთი", "ოზურგეთი", "საქართველო",
-    "remote", "რემოუტ", "hybrid", "ჰიბრიდ", "dist",
+    "remote", "რემოუტ", "hybrid", "ჰიბრიდ",   # ← "dist" წაშლილია
 )
 
 
@@ -41,7 +48,6 @@ def scrape(search_terms=None, progress_callback=None):
     """
     search_terms = search_terms or ["React Developer"]
     all_jobs = []
-    headers = {"User-Agent": USER_AGENT}
     total = len(search_terms)
 
     for i, term in enumerate(search_terms):
@@ -51,18 +57,18 @@ def scrape(search_terms=None, progress_callback=None):
         url = f"{BASE_URL}/en/?page=1&q={term.upper()}&cid={CATEGORY}&lid="
 
         try:
-            r = requests.get(url, headers=headers, timeout=15)
+            r = _session.get(url, timeout=15)
             r.encoding = "utf-8"
 
             if r.status_code != 200:
-                print(f"     ⚠ jobs.ge '{term}': HTTP {r.status_code}")
+                log.warning("jobs.ge '%s': HTTP %s", term, r.status_code)
                 continue
 
             soup = BeautifulSoup(r.text, "html.parser")
             table = soup.find("table", id="job_list_table")
 
             if not table:
-                print(f"     ⚠ jobs.ge '{term}': table ვერ მოიძებნა")
+                log.warning("jobs.ge '%s': table ვერ მოიძებნა", term)
                 continue
 
             rows = table.find_all("tr")[1:]
@@ -88,8 +94,8 @@ def scrape(search_terms=None, progress_callback=None):
                 loc_lower = loc_text.lower()
                 is_remote = (
                     "დისტანციური" in loc_lower
+                    or "დისტანციით" in loc_lower
                     or "remote" in loc_lower
-                    or "dist" in loc_lower
                 )
 
                 all_jobs.append(Job(
@@ -97,17 +103,17 @@ def scrape(search_terms=None, progress_callback=None):
                     title=a_tag.get_text(strip=True),
                     url=full_url,
                     company=cols[3].get_text(strip=True) if len(cols) > 3 else "",
-                    location=location or "საქართველო",
+                    location=location,   # ← "" თუ უცნობია; filters.py გადაწყვეტს
                     posted=cols[4].get_text(strip=True) if len(cols) > 4 else "",
                     deadline=cols[5].get_text(strip=True) if len(cols) > 5 else "",
                     remote=is_remote,
                 ))
                 count += 1
 
-            print(f"     ✓ jobs.ge '{term}': {count} ვაკანსია")
+            log.info("jobs.ge '%s': %s ვაკანსია", term, count)
             time.sleep(REQUEST_DELAY)
 
         except Exception as e:
-            print(f"     ✗ jobs.ge '{term}': {e}")
+            log.warning("jobs.ge '%s': %s", term, e)
 
     return all_jobs

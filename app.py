@@ -39,7 +39,7 @@ st.markdown('<div class="sub-header">ვაკანსიების ძებ
 def load_my_terms():
     if os.path.exists(MY_TERMS_FILE):
         try:
-            with open(MY_TERMS_FILE, "r", encoding="utf-8") as f:
+            with open(MY_TERMS_FILE, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except Exception:
             return []
@@ -68,8 +68,7 @@ with st.sidebar:
     st.subheader("🌐 სად ვეძებთ")
     use_jobspy = st.checkbox("JobSpy (LinkedIn, Indeed, Glassdoor, Google)", value=True)
     use_jobs_ge = st.checkbox("jobs.ge (ქართული)", value=True)
-    use_hr_ge = st.checkbox("hr.ge + doctor.ge (API)", value=True)
-    use_jobs_ss = st.checkbox("jobs.ss.ge (ქართული)", value=True)
+    use_hr_ge = st.checkbox("hr.ge (API)", value=True)
     use_remotive = st.checkbox("Remotive.com (Remote API)", value=True)
 
     st.divider()
@@ -154,7 +153,6 @@ if run_button:
                                       "hours_old": hours_old}),
         "jobs_ge": ("jobs_ge", {}),
         "hr_ge": ("hr_ge", {}),
-        "jobs_ss_ge": ("jobs_ss_ge", {}),
         "remotive": ("remotive_scraper", {}),
     }
 
@@ -162,7 +160,6 @@ if run_button:
     if use_jobspy: enabled.append("jobspy")
     if use_jobs_ge: enabled.append("jobs_ge")
     if use_hr_ge: enabled.append("hr_ge")
-    if use_jobs_ss: enabled.append("jobs_ss_ge")
     if use_remotive: enabled.append("remotive")
 
     if not enabled:

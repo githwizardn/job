@@ -17,29 +17,40 @@ def _safe_stream() -> logging.StreamHandler:
     return logging.StreamHandler(sys.stdout)
 
 
-def get_logger(name: str = "jobradar") -> logging.Logger:
+def _configure_root() -> None:
+    """ერთხელ აკონფიგურირებს მშობელ logger-ს 'jobradar'."""
     global _configured
-    logger = logging.getLogger(name)
     if _configured:
-        return logger
+        return
 
-    logger.setLevel(logging.INFO)
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-                            datefmt="%H:%M:%S")
+    root = logging.getLogger("jobradar")
+    root.setLevel(logging.INFO)
+
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
     stream = _safe_stream()
     stream.setFormatter(fmt)
-    logger.addHandler(stream)
+    root.addHandler(stream)
 
     try:
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-        fh = logging.FileHandler(os.path.join(OUTPUT_DIR, "jobradar.log"),
-                                 encoding="utf-8")
+        fh = logging.FileHandler(
+            os.path.join(OUTPUT_DIR, "jobradar.log"), encoding="utf-8"
+        )
         fh.setFormatter(fmt)
-        logger.addHandler(fh)
+        root.addHandler(fh)
     except OSError:
         pass
 
-    logger.propagate = False
+    root.propagate = False
     _configured = True
-    return logger
+
+
+def get_logger(name: str = "jobradar") -> logging.Logger:
+    _configure_root()
+    if name == "jobradar" or name.startswith("jobradar."):
+        return logging.getLogger(name)
+    return logging.getLogger(f"jobradar.{name}")

@@ -1,3 +1,11 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# ჩატვირთე .env ფაილი (თუ არსებობს)
+load_dotenv(Path(__file__).parent / ".env")
+
 # ============================================================
 # JobRadar — კონფიგურაცია
 # ============================================================
@@ -14,7 +22,6 @@ HOURS_OLD = 168
 HTTP_RETRIES = 3
 HTTP_BACKOFF = 0.5
 
-# jobs.ss.ge დეტალების პარალელური ჩამოტვირთვა
 DETAIL_WORKERS = 4
 
 USER_AGENT = (
@@ -42,7 +49,6 @@ ENABLED_SCRAPERS = [
     "jobspy",
     "jobs_ge",
     "hr_ge",
-    "jobs_ss_ge",
     "remotive",
 ]
 
@@ -56,7 +62,7 @@ GEORGIAN_LOCATIONS = [
     "telavi", "poti", "ozurgeti", "kvemo kartli",
     "თბილისი", "ბათუმი", "ქუთაისი", "რუსთავი", "გორი", "ზუგდიდი",
     "თელავი", "ფოთი", "ოზურგეთი",
-    "georgia", "საქართველო",
+     "საქართველო",
 ]
 
 # 🌍 უცხო ქვეყნები/ქალაქები — თუ ლოკაციაშია (და არ არის remote) → REMOVE
@@ -203,3 +209,17 @@ US_ONLY_COMPANIES = {
 US_ONLY_STRICT = {
     "caci", "lmi", "tista", "saic", "gdit", "mitre",
 }
+
+
+
+
+# ============================================================
+# Telegram (უფასო შეტყობინებები)
+# ============================================================
+# ლოკალურად ტესტისთვის შეგიძლია პირდაპირ ჩაწერო, მაგრამ ჯობია env-ცვლადებით:
+#   Windows CMD:   set TELEGRAM_BOT_TOKEN=...
+#   Windows PS:    $env:TELEGRAM_BOT_TOKEN="..."
+#   bash:          export TELEGRAM_BOT_TOKEN="..."
+# GitHub Actions: Repository Secrets (მოგვიანებით)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")

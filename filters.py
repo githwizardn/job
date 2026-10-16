@@ -73,7 +73,7 @@ def _find_foreign(loc: str) -> Optional[str]:
 
 def _find_georgian(loc: str) -> Optional[str]:
     for geo in GEORGIAN_LOCATIONS:
-        if geo in loc:
+        if _has_word(loc, geo):
             return geo
     return None
 
