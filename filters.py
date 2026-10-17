@@ -154,10 +154,14 @@ def is_available_from_georgia(job: Job) -> tuple[bool, str]:
     """
     loc = (job.location or "").lower().strip()
     desc = (job.description or "").lower()
+    title = (job.title or "").lower()
+    
+    # ახლა ვამოწმებთ სათაურს, ლოკაციას და აღწერას ერთად
+    full_text = f"{title} {loc} {desc}"
 
-    # ─── 1. მკაცრი შეზღუდვა აღწერაში ───
+    # ─── 1. მკაცრი შეზღუდვა ───
     for kw in RESTRICTED_KEYWORDS:
-        if kw in desc:
+        if kw in full_text:
             return False, f"⛔ {kw}"
 
     # ─── 2. ქართული ლოკაცია → KEEP ───
@@ -207,7 +211,6 @@ def is_available_from_georgia(job: Job) -> tuple[bool, str]:
         return True, "🌐 generic remote"
 
     # ─── 6. ვერ გადავწყვიტეთ ───
-    # თუ ლოკაცია აშკარად ქალაქია (არა remote), REMOVE
     if loc and not any(h in loc for h in _REMOTE_HINTS):
         return False, f"❓ {loc[:30]} (onsite)"
     return True, f"❓ {loc[:30]}"

@@ -70,7 +70,7 @@ with st.sidebar:
     use_jobs_ge = st.checkbox("jobs.ge (ქართული)", value=True)
     use_hr_ge = st.checkbox("hr.ge (API)", value=True)
     use_remotive = st.checkbox("Remotive.com (Remote API)", value=True)
-    use_remoteok = st.checkbox("RemoteOK.com (Remote API)", value=True) # ← ახალი
+    use_remoteok = st.checkbox("RemoteOK.com (Remote API)", value=True) 
     use_wwr = st.checkbox("WeWorkRemotely (RSS)", value=True) 
 
     st.divider()
@@ -156,7 +156,7 @@ if run_button:
         "jobs_ge": ("jobs_ge", {}),
         "hr_ge": ("hr_ge", {}),
         "remotive": ("remotive_scraper", {}),
-        "remoteok": ("remoteok", {}),                   # ← ახალი
+        "remoteok": ("remoteok", {}),                   
         "weworkremotely": ("weworkremotely", {}), 
     }
 
@@ -165,7 +165,7 @@ if run_button:
     if use_jobs_ge: enabled.append("jobs_ge")
     if use_hr_ge: enabled.append("hr_ge")
     if use_remotive: enabled.append("remotive")
-    if use_remoteok: enabled.append("remoteok")             # ← ახალი
+    if use_remoteok: enabled.append("remoteok")             
     if use_wwr: enabled.append("weworkremotely")  
 
     if not enabled:
@@ -320,33 +320,52 @@ if st.session_state.get("results") is not None:
 
     st.caption(f"ნაჩვენებია: **{len(filtered)}** / {len(df)}")
 
-    # --- ცხრილი ---
+    # --- შედეგები (ბარათების სახით) ---
     st.subheader("📋 შედეგები")
 
-    _EN_TO_KA = {
-        "source": "წყარო", "title": "სათაური", "company": "კომპანია",
-        "location": "ლოკაცია", "posted": "გამოქვეყნდა", "geo_status": "🌍 სტატუსი",
-        "salary": "💰 ხელფასი", "url": "ლინკი",
-    }
-    cols = [c for c in ("source", "title", "company", "location", "posted",
-                        "salary", "geo_status", "url")
-            if c in filtered.columns]
-    display_df = filtered[cols].copy()
-    display_df.columns = [_EN_TO_KA[c] for c in cols]
-    col_config = {
-        "ლინკი": st.column_config.LinkColumn("გახსნა", display_text="🔗"),
-        "სათაური": st.column_config.TextColumn("სათაური", width="large"),
-        "კომპანია": st.column_config.TextColumn("კომპანია", width="medium"),
-        "წყარო": st.column_config.TextColumn("წყარო", width="small"),
-        "🌍 სტატუსი": st.column_config.TextColumn("🌍 სტატუსი", width="medium"),
-    }
+    # ვიღებთ მხოლოდ პირველ 50-ს, რომ ბრაუზერი არ გაიჭედოს
+    filtered_clean = filtered.head(50).fillna("")
+    jobs_to_show = filtered_clean.to_dict("records")
 
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=col_config,
-    )
+    for job in jobs_to_show:
+        with st.container(border=True):
+            col1, col2 = st.columns([5, 1])
+            
+            with col1:
+                # სათაური (ლინკით)
+                title = job.get('title', 'უსათაურო')
+                url = job.get('url', '#')
+                st.markdown(f"### [{title}]({url})")
+                
+                # კომპანია და ლოკაცია
+                company = job.get('company', '')
+                location = job.get('location', '')
+                if company or location:
+                    st.markdown(f"🏢 **{company}** &nbsp;|&nbsp; 📍 {location}")
+                
+                # ბეჯები (Tags)
+                tags = []
+                if job.get('source'): tags.append(f"📡 {job.get('source')}")
+                if job.get('remote') is True or job.get('remote') == 1: tags.append("🌍 Remote")
+                if job.get('geo_status'): tags.append(str(job.get('geo_status')))
+                if job.get('salary'): tags.append(f"💰 {job.get('salary')}")
+                
+                if tags:
+                    st.markdown(" • ".join(tags))
+
+            with col2:
+                st.metric(label="⭐ Score", value=job.get('score', 0))
+                st.caption(f"📅 {str(job.get('posted', ''))[:10]}")
+
+            # აღწერის ჩვენება (თუ აქვს)
+            desc = job.get('description', '')
+            if desc and len(str(desc).strip()) > 0:
+                with st.expander("👁️ ვაკანსიის აღწერა"):
+                    desc_str = str(desc)
+                    st.write(desc_str[:1000] + "..." if len(desc_str) > 1000 else desc_str)
+
+    if len(filtered) > 50:
+        st.info(f"👀 ნაჩვენებია პირველი 50 ვაკანსია {len(filtered)}-დან. გამოიყენე ფილტრები უფრო ზუსტი შედეგისთვის.")
 
     # --- ჩამოტვირთვა ---
     st.divider()

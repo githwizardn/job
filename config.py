@@ -50,7 +50,7 @@ ENABLED_SCRAPERS = [
     "jobs_ge",
     "hr_ge",
     "remotive",
-    "remoteok",         # ← ახალი
+    "remoteok",
     "weworkremotely",
 ]
 
@@ -112,6 +112,11 @@ RESTRICTED_KEYWORDS = [
     "right to work in the us", "us citizen", "us citizenship",
     "green card", "us work permit", "only us candidates",
     "us-based candidates only",
+    # ახალი დამატებები (შენი მაგალითებიდან)
+    "us-eligible", "based in the us", "located in the united states",
+    "based in the us or canada", "us or canada",
+    "authorized to work from us", "must be authorized to work from us",
+    "must be able to work us", "work us timezones",
     # UK-only
     "uk only", "must be uk", "must be based in the uk",
     "must reside in the uk", "right to work in the uk",
@@ -139,7 +144,8 @@ RESTRICTED_KEYWORDS = [
     "must be in est timezone", "must be in pst timezone",
     "us timezone required", "us time zone required",
     "americas timezone only", "american timezone only",
-    "must overlap with us hours",
+    "must overlap with us hours", "us timezone", "us timezones", 
+    "overlap with us", "mainland us",
 ]
 
 # ✅ ნებადართული ფრაზები — თუ რომელიმე ეს არის → KEEP
@@ -213,8 +219,6 @@ US_ONLY_STRICT = {
 }
 
 
-
-
 # ============================================================
 # Telegram (უფასო შეტყობინებები)
 # ============================================================
@@ -225,8 +229,6 @@ US_ONLY_STRICT = {
 # GitHub Actions: Repository Secrets (მოგვიანებით)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
-
-
 
 
 # ============================================================
