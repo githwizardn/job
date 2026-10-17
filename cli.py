@@ -28,6 +28,8 @@ SCRAPER_REGISTRY = {
     "hr_ge":      ("hr_ge", {}),
     "jobs_ss_ge": ("jobs_ss_ge", {}),
     "remotive":   ("remotive_scraper", {}),
+     "remoteok":         ("remoteok", {}),          # ← ახალი
+    "weworkremotely":   ("weworkremotely", {}),  
 }
 
 

@@ -50,6 +50,8 @@ ENABLED_SCRAPERS = [
     "jobs_ge",
     "hr_ge",
     "remotive",
+    "remoteok",         # ← ახალი
+    "weworkremotely",
 ]
 
 # ============================================================

@@ -70,6 +70,8 @@ with st.sidebar:
     use_jobs_ge = st.checkbox("jobs.ge (ქართული)", value=True)
     use_hr_ge = st.checkbox("hr.ge (API)", value=True)
     use_remotive = st.checkbox("Remotive.com (Remote API)", value=True)
+    use_remoteok = st.checkbox("RemoteOK.com (Remote API)", value=True) # ← ახალი
+    use_wwr = st.checkbox("WeWorkRemotely (RSS)", value=True) 
 
     st.divider()
 
@@ -154,6 +156,8 @@ if run_button:
         "jobs_ge": ("jobs_ge", {}),
         "hr_ge": ("hr_ge", {}),
         "remotive": ("remotive_scraper", {}),
+        "remoteok": ("remoteok", {}),                   # ← ახალი
+        "weworkremotely": ("weworkremotely", {}), 
     }
 
     enabled: list[str] = []
@@ -161,6 +165,8 @@ if run_button:
     if use_jobs_ge: enabled.append("jobs_ge")
     if use_hr_ge: enabled.append("hr_ge")
     if use_remotive: enabled.append("remotive")
+    if use_remoteok: enabled.append("remoteok")             # ← ახალი
+    if use_wwr: enabled.append("weworkremotely")  
 
     if not enabled:
         st.error("⚠️ აირჩიე მინიმუმ ერთი საიტი!")

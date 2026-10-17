@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db import connect, get_jobs, mark_applied, stats, toggle_favorite
 from logging_utils import get_logger
+from cv_matcher import extract_text_from_pdf, calculate_match_score # ← ახალი იმპორტი
 
 log = get_logger("history")
 
@@ -18,7 +19,6 @@ st.set_page_config(page_title="History — JobRadar", page_icon="📚", layout="
 
 st.title("📚 Vacancy History")
 st.caption("ბაზაში შენახული ყველა ვაკანსია — გაფილტრე, მონიშნე, გადმოწერე")
-
 
 # ─────────────────────────────────────────────
 # ბაზასთან კავშირი
@@ -32,6 +32,42 @@ c1.metric("📦 სულ ბაზაში", s["total"] or 0)
 c2.metric("🆕 ბოლო 24 სთ", s["last_24h"] or 0)
 c3.metric("⭐ ფავორიტები", s["favorite"] or 0)
 c4.metric("✅ მიმართული", s["applied"] or 0)
+
+st.divider()
+
+# ─────────────────────────────────────────────
+# 🤖 CV Matching (მუდმივი შენახვით)
+# ─────────────────────────────────────────────
+import os
+
+CV_CACHE_FILE = "my_cv.txt"
+
+# თუ პროგრამის ჩატვირთვისას ფაილი არსებობს, წავიკითხოთ
+if "cv_text" not in st.session_state:
+    if os.path.exists(CV_CACHE_FILE):
+        with open(CV_CACHE_FILE, "r", encoding="utf-8") as f:
+            st.session_state["cv_text"] = f.read()
+
+with st.expander("🤖 ატვირთე CV და ნახე შესაბამისობა (Match %)", expanded=False):
+    uploaded_cv = st.file_uploader("ატვირთე რეზიუმე (PDF ფორმატში)", type=["pdf"])
+    if uploaded_cv is not None:
+        cv_text = extract_text_from_pdf(uploaded_cv)
+        if cv_text:
+            st.success("✅ CV წარმატებით წაიკითხა და შეინახა!")
+            st.session_state["cv_text"] = cv_text
+            # ვინახავთ ლოკალურად, რომ F5-ის შემდეგ აღარ დაგჭირდეს ატვირთვა
+            with open(CV_CACHE_FILE, "w", encoding="utf-8") as f:
+                f.write(cv_text)
+        else:
+            st.error("❌ ვერ მოხერხდა ტექსტის ამოღება. სცადე სხვა PDF.")
+            
+    if "cv_text" in st.session_state:
+        st.info("ℹ️ CV მეხსიერებაშია. Match % აქტიურია.")
+        if st.button("🗑️ CV-ს წაშლა"):
+            st.session_state.pop("cv_text", None)
+            if os.path.exists(CV_CACHE_FILE):
+                os.remove(CV_CACHE_FILE)
+            st.rerun()
 
 st.divider()
 
@@ -120,16 +156,37 @@ if jobs:
     df = pd.DataFrame(jobs)
     df_display = df[
         ["fp", "score", "source", "title", "company", "location",
-         "first_seen", "applied", "favorite", "url"]
+         "first_seen", "applied", "favorite", "url", "description"]
     ].copy()
+
+    # CV Matching ლოგიკა
+    if "cv_text" in st.session_state:
+        cv_text = st.session_state["cv_text"]
+        # ვითვლით Match %-ს (თუ აღწერა ცარიელია, ვიყენებთ სათაურს)
+        df_display["match_pct"] = df_display.apply(
+            lambda row: calculate_match_score(
+                cv_text, 
+                str(row.get("description") or "") + " " + str(row.get("title") or "")
+            ), axis=1
+        )
+        df_display = df_display.sort_values(by="match_pct", ascending=False)
+    else:
+        df_display["match_pct"] = 0
 
     df_display["applied"] = df_display["applied"].astype(bool)
     df_display["favorite"] = df_display["favorite"].astype(bool)
 
+    # ვმალავთ description-ს ცხრილიდან, მაგრამ ვტოვებთ მონაცემებში
+    cols_to_show = ["fp", "match_pct", "score", "source", "title", "company", 
+                    "location", "first_seen", "applied", "favorite", "url"]
+
     edited = st.data_editor(
-        df_display,
+        df_display[cols_to_show],
         column_config={
             "fp": None,  # დამალე
+            "match_pct": st.column_config.ProgressColumn(
+                "🤖 Match %", format="%d%%", min_value=0, max_value=100, width="medium"
+            ),
             "score": st.column_config.NumberColumn("⭐", width="small"),
             "source": st.column_config.TextColumn("წყარო", width="small"),
             "title": st.column_config.TextColumn("სათაური", width="large"),
@@ -141,7 +198,7 @@ if jobs:
             "url": st.column_config.LinkColumn("გახსნა", display_text="🔗"),
         },
         disabled=[
-            "score", "source", "title", "company",
+            "match_pct", "score", "source", "title", "company",
             "location", "first_seen", "url",
         ],
         hide_index=True,
@@ -153,7 +210,7 @@ if jobs:
     if st.button("💾 ცვლილებების შენახვა", type="primary"):
         changes = 0
         for i, row in edited.iterrows():
-            orig = df_display.iloc[i]
+            orig = df_display[cols_to_show].iloc[i]
             if bool(row["applied"]) != bool(orig["applied"]):
                 mark_applied(conn, orig["fp"], bool(row["applied"]))
                 changes += 1
@@ -169,7 +226,7 @@ if jobs:
     # CSV ექსპორტი
     st.divider()
     st.subheader("💾 ჩამოტვირთვა")
-    csv = df_display.drop(columns=["fp"]).to_csv(index=False).encode("utf-8-sig")
+    csv = df_display[cols_to_show].drop(columns=["fp"]).to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         "📥 CSV ჩამოტვირთვა",
         data=csv,
