@@ -231,53 +231,88 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 
-# ============================================================
+ # ============================================================
 # ტერმინების სინონიმები — ძებნა ჭკვიანური რომ იყოს
 # ============================================================
-# "frontend" რომ ეძებო, "React Developer"-იც მოიძებნოს
 TERM_SYNONYMS = {
     "frontend": [
         "frontend", "front-end", "front end",
         "react", "vue", "angular", "next.js", "svelte",
+        "ფრონტენდ", "ფრონტ-ენდ", "ფრონტ ენდ"
     ],
     "react": [
         "react", "react.js", "reactjs",
+        "რეაქტ", "რეაქტ.js"
     ],
     "react native": [
-        "react native", "react-native", "reactnative",
+        "react native", "react-native", "reactnative", "mobile developer",
+        "რეაქტ ნეითივ", "მობილური დეველოპერი"
     ],
     "javascript": [
-        "javascript", "ecmascript", "es6", "typescript",
+        "javascript", "js", "ecmascript", "es6", "typescript",
+        "ჯავასკრიპტი"
     ],
     "web developer": [
-        "web developer", "web dev", "fullstack", "full-stack",
-        "full stack", "web development",
+        "web developer", "web dev", "web development",
+        "ვებ დეველოპერი", "ვებ პროგრამისტი"
+    ],
+    "full stack": [
+        "full stack", "fullstack", "full-stack", "full stack developer",
+        "ფულ სტეკ", "სრული სტეკი"
     ],
     "junior developer": [
         "junior", "jr ", "jr.", "entry level", "entry-level",
         "junior developer", "junior frontend",
+        "ჯუნიორ", "დამწყები დეველოპერი", "დამწყები პროგრამისტი"
+    ],
+    "qa": [
+        "qa", "quality assurance", "qa engineer", "tester", "testing", "manual qa",
+        "ტესტერი", "ხარისხის უზრუნველყოფა"
     ],
     "it support": [
         "it support", "helpdesk", "help desk", "service desk",
-        "technical support", "tech support", "it specialist",
-        "sysadmin", "system administrator", "it technician",
+        "it specialist", "sysadmin", "system administrator", "it technician",
+        "ტექნიკური მხარდაჭერა", "IT მხარდაჭერა", "სისტემური ადმინისტრატორი"
+    ],
+    "helpdesk": [
+        "helpdesk", "help desk", "service desk", "it support",
+        "ჰელპდესკი"
+    ],
+    "technical support": [
+        "technical support", "tech support", "it support",
+        "ტექნიკური მხარდაჭერა"
     ],
     "customer support": [
         "customer support", "customer service", "client service",
         "client support", "customer success", "call center",
+        "მომხმარებელთა მომსახურება", "კლიენტთა მომსახურება", "ქოლ ცენტრი"
     ],
     "network": [
         "network", "networking", "network engineer", "network admin",
         "network administrator", "ccna", "cisco", "noc",
+        "ქსელი", "ქსელის ინჟინერი", "ქსელის ადმინისტრატორი"
     ],
     "cybersecurity": [
         "cybersecurity", "cyber security", "information security",
         "infosec", "security analyst", "soc analyst", "security engineer",
+        "კიბერუსაფრთხოება", "ინფორმაციული უსაფრთხოება", "უსაფრთხოების ანალიტიკოსი"
+    ],
+    "soc": [
+        "soc", "soc analyst", "security operations center", 
+        "security operations", "კიბერ უსაფრთხოება"
     ],
     "intern": [
-        "intern", "internship", "trainee", "სტაჟიორი",
+        "intern", "internship", "trainee", "სტაჟიორი"
     ],
     "სტაჟიორი": [
-        "intern", "internship", "trainee", "junior", "სტაჟიორი",
+        "intern", "internship", "trainee", "junior", "სტაჟიორი"
     ],
+    "მომხმარებელთა მომსახურება": [
+        "customer support", "customer service", "client service",
+        "მომხმარებელთა მომსახურება", "კლიენტთა მომსახურება"
+    ],
+    "ტექნიკური მხარდაჭერა": [
+        "it support", "technical support", "helpdesk",
+        "ტექნიკური მხარდაჭერა", "IT მხარდაჭერა"
+    ]
 }
