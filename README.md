@@ -1,20 +1,20 @@
-# 🎯 JobRadar
+#  JobRadar
 
 ვაკანსიების აგრეგატორი — ავტომატურად ეძებს სამსახურებს სხვადასხვა წყაროდან, ფილტრავს გეოგრაფიულად და აგზავნის Telegram-ზე.
 
-## ✨ ფუნქციები
+##  ფუნქციები
 
-- 🔍 **4 წყარო:** LinkedIn, Indeed, Glassdoor, Google (jobspy-ით), jobs.ge, hr.ge, Remotive
-- 🌍 **გეო-ფილტრი:** მხოლოდ საქართველოდან ხელმისაწვდომი ვაკანსიები
-- 🔄 **დედუპლიკაცია:** URL + (title + company) — ერთს არ იმეორებს
-- 💾 **SQLite ბაზა:** ინახავს ისტორიას, ახსოვს რა ნახა
-- ⭐ **ქულით დალაგება:** ყველაზე რელევანტური პირველ ადგილზე
-- 📱 **Telegram შეტყობინება:** ახალი ვაკანსიები ტელეფონზე
-- 🤖 **ავტომატური გაშვება:** GitHub Actions, დღეში 2-ჯერ
-- 📊 **ისტორიის გვერდი:** tracking (✅ მიმართული, ⭐ ფავორიტი), CSV ექსპორტი
-- 🖥️ **Streamlit UI:** ვიზუალური ინტერფეისი
+-  **4 წყარო:** LinkedIn, Indeed, Glassdoor, Google (jobspy-ით), jobs.ge, hr.ge, Remotive
+-  **გეო-ფილტრი:** მხოლოდ საქართველოდან ხელმისაწვდომი ვაკანსიები
+-  **დედუპლიკაცია:** URL + (title + company) — ერთს არ იმეორებს
+-  **SQLite ბაზა:** ინახავს ისტორიას, ახსოვს რა ნახა
+-  **ქულით დალაგება:** ყველაზე რელევანტური პირველ ადგილზე
+-  **Telegram შეტყობინება:** ახალი ვაკანსიები ტელეფონზე
+-  **ავტომატური გაშვება:** GitHub Actions, დღეში 2-ჯერ
+-  **ისტორიის გვერდი:** tracking (✅ მიმართული, ⭐ ფავორიტი), CSV ექსპორტი
+-  **Streamlit UI:** ვიზუალური ინტერფეისი
 
-## 🚀 დაყენება
+##  დაყენება
 
     git clone https://github.com/githwizardn/job.git
     cd job
@@ -28,7 +28,7 @@
 
     pip install -r requirements.txt
 
-## ⚙️ კონფიგურაცია
+##  კონფიგურაცია
 
 ### 1. `.env` ფაილი
 
@@ -51,7 +51,7 @@
 
     ["frontend", "react", "junior developer", "intern"]
 
-## 🎮 გამოყენება
+##  გამოყენება
 
 ### CLI (ტერმინალიდან)
 
@@ -67,7 +67,7 @@
 
 გაიხსნება ბრაუზერში `http://localhost:8501`.
 
-## 🤖 ავტომატური გაშვება (GitHub Actions)
+##  ავტომატური გაშვება (GitHub Actions)
 
 Workflow უკვე კონფიგურირებულია — დღეში 2-ჯერ (10:00 და 22:00 თბილისით).
 
@@ -78,11 +78,11 @@ Workflow უკვე კონფიგურირებულია — დ�
    - `TELEGRAM_CHAT_ID`
 
 2. **Workflow permissions:** Settings → Actions → General
-   - ✅ Read and write permissions
+   -  Read and write permissions
 
 3. **ხელით გაშვება:** Actions tab → JobRadar → Run workflow
 
-## 🏗️ არქიტექტურა
+##  არქიტექტურა
 
     jobradar/
     ├── .github/workflows/
@@ -140,18 +140,18 @@ Workflow უკვე კონფიგურირებულია — დ�
     4. ბაზა       →  fingerprint-ით upsert (მხოლოდ ახლები)
     5. Telegram   →  ახალი ვაკანსიები ტელეფონზე
 
-## 🧪 როგორ მუშაობს ფილტრი
+##  როგორ მუშაობს ფილტრი
 
-    1. ⛔ RESTRICTED_KEYWORDS აღწერაში → REMOVE
+    1.  RESTRICTED_KEYWORDS აღწერაში → REMOVE
     2. 🇬🇪 ქართული ლოკაცია → KEEP
     3. 🇺🇸 US-only კომპანია → REMOVE
-    4. 📍 უცხო + onsite → REMOVE
-    5. 🌍 უცხო + remote + "worldwide" → KEEP
-    6. 🌍 უცხო + remote + EMEA → KEEP
-    7. 💼 უცხო + remote + contractor → KEEP
-    8. 📍 უცხო + remote, სიგნალის გარეშე → REMOVE
+    4.  უცხო + onsite → REMOVE
+    5.  უცხო + remote + "worldwide" → KEEP
+    6.  უცხო + remote + EMEA → KEEP
+    7.  უცხო + remote + contractor → KEEP
+    8.  უცხო + remote, სიგნალის გარეშე → REMOVE
 
-## 🛠️ ტექნოლოგიები
+##  ტექნოლოგიები
 
 - **Python 3.11**
 - **requests** — HTTP (Session + retry)
@@ -162,7 +162,7 @@ Workflow უკვე კონფიგურირებულია — დ�
 - **python-dotenv** — კონფიგურაცია
 - **GitHub Actions** — ავტომატიზაცია (cron)
 
-## 📦 requirements.txt
+##  requirements.txt
 
     streamlit>=1.30.0
     pandas>=2.0.0
@@ -172,13 +172,13 @@ Workflow უკვე კონფიგურირებულია — დ�
     lxml>=5.0.0
     python-dotenv>=1.0.0
 
-## 🔐 უსაფრთხოება
+##  უსაფრთხოება
 
 - `.env` ფაილი `.gitignore`-შია — GitHub-ზე არ აიტვირთება
 - Telegram token ინახება `.env`-ში (ლოკალურად) + GitHub Secrets-ში (დაშიფრული)
 - `.env.example` — ნიმუში ცარიელი მნიშვნელობებით
 
-## 📄 ლიცენზია
+##  ლიცენზია
 
 MIT
 
